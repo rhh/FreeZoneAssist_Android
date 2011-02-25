@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    >
+    
+	<TableLayout
+		android:layout_width="fill_parent" 
+		android:layout_height="wrap_content"
+		android:stretchColumns="*">			
+		<TableRow
+			android:layout_gravity="center" >    
+		
+			<org.rhh.FreeZoneAssist.NumberPicker
+				android:id="@+id/section_digit_010"
+				android:layout_width="fill_parent"
+				android:layout_height="wrap_content" 
+				android:layout_margin="5dp"
+			/>
+			<org.rhh.FreeZoneAssist.NumberPicker
+				android:id="@+id/section_digit_001"
+				android:layout_width="fill_parent"
+				android:layout_height="wrap_content" 
+				android:layout_margin="5dp"
+			/>
+		</TableRow>
+	</TableLayout>
+	<TableLayout
+		android:layout_marginTop="20dp"
+		android:layout_width="fill_parent" 
+		android:layout_height="wrap_content"
+		android:stretchColumns="*">			
+		<TableRow
+			android:weightSum="2.0" 	
+			android:layout_gravity="center" >    
+			<Button
+				android:id="@+id/section_ok"
+				android:text="@string/ok"
+				android:textSize="30sp"
+				android:layout_margin="5dp"
+				android:layout_height="wrap_content"
+				android:layout_width="fill_parent"
+			/>
+			<Button
+				android:id="@+id/section_abort"
+				android:text="@string/abort"
+				android:textSize="30sp"
+				android:layout_margin="5dp"
+				android:layout_height="wrap_content"
+				android:layout_width="fill_parent"
+			/>
+		
+		</TableRow>
+	</TableLayout> 		
+</LinearLayout>
+

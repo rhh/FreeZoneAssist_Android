@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, FreeZoneAssist!</string>
+    <string name="app_name">FreeZoneAssist</string>
+    <string name="main_title">FreeZoneAssist</string>
+    <string name="tvRider_default">Rid:1234</string>
+    <string name="tvSection_default">Sec:1234</string>
+    <string name="tvPoints_default">Pt:12345</string>
+    <string name="tvCountdown_default">t: 00:00</string>
+    <string name="tvState_default">1234567890123456</string>
+    <string name="two_label">2</string>
+    <string name="five_label">5</string>
+    <string name="ten_label">10</string>
+    <string name="back_label">Back</string>
+    <string name="start_label">START</string>
+    <string name="stop_label">STOP</string>
+    <string name="goal_label">ZIEL</string>
+    <string name="save_label">SAVE</string>    
+    <string name="stop_menu_title">ENDE:</string>
+    <string name="stop_menu">Fuß</string>    
+    <string name="fatal_stop_menu">Scheitern</string>    
+    <string name="about_title">Info</string>    
+    <string name="about_text">FreeZoneAssist ist eine Anwendung der Zeitschrift TrialSport (rhh)</string>   
+    <string name="settings_title">Einstellungen</string>   
+    <string name="set_section_title">Sektions-Nummer einstellen:</string> 
+    <string name="set_driver_title">Fahrer-Nummer einstellen:</string> 
+    <string name="ok">OK</string> 
+    <string name="abort">Abbruch</string> 
+     
+</resources>
