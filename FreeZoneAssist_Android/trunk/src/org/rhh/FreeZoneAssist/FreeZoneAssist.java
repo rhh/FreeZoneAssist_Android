@@ -7,17 +7,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Stack;
 
-//import org.example.sudoku.About;
-//import org.example.sudoku.Prefs;
-//import org.example.sudoku.R;
-
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
-import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -26,15 +19,12 @@ import android.os.Vibrator;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
-import android.view.HapticFeedbackConstants;
-import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnKeyListener;
 import android.view.View.OnTouchListener;
 import android.view.WindowManager;
 import android.widget.TextView;
@@ -45,29 +35,34 @@ import android.widget.TextView;
 //		- section time
 //	o button feedback
 //      - haptic
-//      - click-sound
 
-public class FreeZoneAssist extends Activity implements OnClickListener, OnTouchListener
-{
-	private static final String TAG = "FZA";
-	int ver = 17;
+public class FreeZoneAssist extends Activity implements OnClickListener,
+		OnTouchListener {
+	static final String TAG = "FZA";
+	static final int ver = 17;
+	static final int SET_SECTION = 4711;
+	static final int SET_DRIVER = 4712;
+
 	// --------------------------------------------------- Fields...
 	TextView tvRider, tvPoints, tvSection, tvCountdown;
-	boolean btnTwoEnabled, btnFiveEnabled, btnTenEnabled, btnBackEnabled, btnStartEnabled, btnStopEnabled, btnGoalEnabled, btnSaveEnabled;
+	boolean btnTwoEnabled, btnFiveEnabled, btnTenEnabled, btnBackEnabled,
+			btnStartEnabled, btnStopEnabled, btnGoalEnabled, btnSaveEnabled;
 
-	enum Modes { Rating, Saved, Unsaved };
+	enum Modes {
+		Rating, Saved, Unsaved
+	};
 	Modes Mode;
+	
+	boolean KeyInProcess = false;
+	int NextDriver;
 
 	Stack<RatingAction> History = new Stack<RatingAction>(); // size?
-	
-//	Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-//	ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_SYSTEM, 100);
+
 	private MediaPlayer mpErrorBeep;
 	private MediaPlayer mpFatalStopBeep;
-	private MediaPlayer mpCountDownOverBeep;
+	private MediaPlayer mpTimeout;
 	private MediaPlayer mpKeyClick;
-
-	int NextDriver;
+	Vibrator vibrator;
 
 	// free running counter to emulate watchdog-timer on Arduino
 	long frtStartTime = 0L;
@@ -80,7 +75,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 	int CountDownMsecs = CountDownDuration;
 	boolean CountDownEnabled = true;
 
-	
 	// --------------------------------------------------- Livecycle Methods...
 	/** Called when the activity is first created. */
 	@Override
@@ -95,52 +89,75 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		setContentView(R.layout.main);
 
 		// Setup listener for all the buttons
-		v=findViewById(R.id.two_button);v.setOnClickListener(this);v.setOnTouchListener(this); 
-		v=findViewById(R.id.five_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.ten_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.back_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.start_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.stop_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.goal_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.save_button);v.setOnClickListener(this);v.setOnTouchListener(this);
-		
-		v=findViewById(R.id.tvCountdown);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.tvPoints);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.tvRider);v.setOnClickListener(this);v.setOnTouchListener(this);
-		v=findViewById(R.id.tvSection);v.setOnClickListener(this);v.setOnTouchListener(this);
+		v = findViewById(R.id.two_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.five_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.ten_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.back_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.start_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.stop_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.goal_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.save_button);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
 
+		v = findViewById(R.id.tvCountdown);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.tvPoints);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.tvRider);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
+		v = findViewById(R.id.tvSection);
+		v.setOnClickListener(this);
+		v.setOnTouchListener(this);
 
 		tvRider = (TextView) findViewById(R.id.tvRider);
 		tvCountdown = (TextView) findViewById(R.id.tvCountdown);
 		tvSection = (TextView) findViewById(R.id.tvSection);
 		tvPoints = (TextView) findViewById(R.id.tvPoints);
-		
-    	// http://www.soundjay.com/beep-sounds-1.html lots of free beeps here
-	    mpErrorBeep = MediaPlayer.create(this, R.raw.beep3);
-	    mpFatalStopBeep = MediaPlayer.create(this, R.raw.beep9);
-	    mpCountDownOverBeep = MediaPlayer.create(this, R.raw.beep6);
-	    mpKeyClick = MediaPlayer.create(this, R.raw.button16);
 
+		// http://www.soundjay.com/beep-sounds-1.html lots of free beeps here
+		mpErrorBeep = MediaPlayer.create(this, R.raw.error_beep);
+		mpFatalStopBeep = MediaPlayer.create(this, R.raw.fatalstop_beep);
+		mpTimeout = MediaPlayer.create(this, R.raw.timeout_beep);
+		mpKeyClick = MediaPlayer.create(this, R.raw.click01);	// first 0.1 sec. of button16
+		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
 		startFreeRunningTimer();
 
-		try												// warm start...
+		try // warm start...
 		{
-			Log.d(TAG,"onCreate: warm start!");
+			Log.d(TAG, "onCreate: warm start!");
 			this.Mode = (Modes) savedInstanceState.getSerializable("State");
 			this.CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
 			this.NextDriver = savedInstanceState.getInt("NextDriver");
-			this.CountDownEnabled = savedInstanceState.getBoolean("CountDownEnabled");
+			this.CountDownEnabled = savedInstanceState
+					.getBoolean("CountDownEnabled");
 			RatingAction.ActualDriver = savedInstanceState.getInt("Driver");
 			RatingAction.ActualPoints = savedInstanceState.getInt("Points");
 			RatingAction.ActualSection = savedInstanceState.getInt("Section");
 			RatingAction.IDCounter = savedInstanceState.getInt("ID");
 
-		}
-		catch (NullPointerException e)					// cold start...
+		} catch (NullPointerException e) // cold start...
 		{
-			Log.d(TAG,"onCreate: cold start!");
-			Mode = Modes.Saved;			
+			Log.d(TAG, "onCreate: cold start!");
+			Mode = Modes.Saved;
 			CountDownMsecs = 0;
 			CountDownEnabled = false;
 			RatingAction ra = InitFromLog();
@@ -153,17 +170,29 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		EnterMode(Mode);
 
 		this.setTitle(String.format("FreeZoneAssist (v%03d/17feb11)", ver));
+		
 	}
-	
-	 @Override
-	    protected void onDestroy() {
-	        super.onDestroy();
-	        if (mpErrorBeep != null){ mpErrorBeep.release(); mpErrorBeep = null; }
-	        if (mpFatalStopBeep != null){ mpFatalStopBeep.release(); mpFatalStopBeep = null; }
-	        if (mpCountDownOverBeep != null){ mpCountDownOverBeep.release(); mpCountDownOverBeep = null; }
-	        if (mpCountDownOverBeep != null){ mpCountDownOverBeep.release(); mpCountDownOverBeep = null; }
-	    }
 
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		if (mpErrorBeep != null) {
+			mpErrorBeep.release();
+			mpErrorBeep = null;
+		}
+		if (mpFatalStopBeep != null) {
+			mpFatalStopBeep.release();
+			mpFatalStopBeep = null;
+		}
+		if (mpTimeout != null) {
+			mpTimeout.release();
+			mpTimeout = null;
+		}
+		if (mpTimeout != null) {
+			mpTimeout.release();
+			mpTimeout = null;
+		}
+	}
 
 	@Override
 	public void onSaveInstanceState(Bundle savedInstanceState) {
@@ -179,56 +208,84 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		super.onSaveInstanceState(savedInstanceState);
 	}
 
-//	@Override
-//	public void onRestoreInstanceState(Bundle savedInstanceState) {
-//		super.onRestoreInstanceState(savedInstanceState);
-//		State = (States) savedInstanceState.getSerializable("State");
-//		CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
-//	}
+	// @Override
+	// public void onRestoreInstanceState(Bundle savedInstanceState) {
+	// super.onRestoreInstanceState(savedInstanceState);
+	// State = (States) savedInstanceState.getSerializable("State");
+	// CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
+	// }
 
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
-//		KeyClick();
-		switch (v.getId()) {
-		case R.id.two_button:
-			if(btnTwoEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.five_button:
-			if(btnFiveEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.ten_button:
-			if(btnTenEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.back_button:
-			if(btnBackEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.start_button:
-			if(btnStartEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.stop_button:
-			if(btnStopEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.goal_button:
-			if(btnGoalEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.save_button:
-			if(btnSaveEnabled) KeyClick(); else ErrorBeep();
-			break;
-		case R.id.tvCountdown:
-		case R.id.tvPoints:
-		case R.id.tvRider:
-		case R.id.tvSection:
-			KeyClick(); 
-			break;
+		if (!KeyInProcess) {
+			switch (v.getId()) {
+			// ----------------------------- touch buttons
+			case R.id.two_button:
+				if (btnTwoEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.five_button:
+				if (btnFiveEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.ten_button:
+				if (btnTenEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.back_button:
+				if (btnBackEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.start_button:
+				if (btnStartEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.stop_button:
+				if (btnStopEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.goal_button:
+				if (btnGoalEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			case R.id.save_button:
+				if (btnSaveEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
+				break;
+			// --------------------------------- // touch display
+			case R.id.tvCountdown:	
+			case R.id.tvPoints:
+			case R.id.tvRider:
+			case R.id.tvSection:
+				KeyClick();
+				break;
+			}
 		}
+		KeyInProcess = true;
 		return false;
 	}
 
 	public void onClick(View v) {
 
-//		vibrator.vibrate(100);	// milliseconds
-//		KeyClick();
-		
+		// vibrator.vibrate(100); // milliseconds
+		KeyInProcess = false;
+
 		switch (v.getId()) {
 		case R.id.two_button:
 			btnAdd2_Click();
@@ -258,18 +315,16 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		case R.id.tvPoints:
 		case R.id.tvRider:
 		case R.id.tvSection:
-	        startActivityForResult(new Intent(this, SetDriver.class), SET_DRIVER);
+			startActivityForResult(new Intent(this, SetDriver.class),
+					SET_DRIVER);
 			break;
 		}
 	}
-	
-//	@Override
-//	public void on
 
-// --------------------------------------------------------- Context Menu	
+	// --------------------------------------------------------- Context Menu
 	@Override
-	public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) 
-	{
+	public void onCreateContextMenu(ContextMenu menu, View v,
+			ContextMenuInfo menuInfo) {
 		super.onCreateContextMenu(menu, v, menuInfo);
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.stop_submenu, menu);
@@ -277,103 +332,106 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 
 	@Override
 	public boolean onContextItemSelected(MenuItem item) {
-		// AdapterContextMenuInfo info = (AdapterContextMenuInfo)
-		// item.getMenuInfo();
-		switch (item.getItemId()) 
-		{
-			case R.id.stop:
-				btnStop_Action();
-				return true;
-			case R.id.fatal_stop:
-				btnFatalStop_Action();
-				return true;
-			default:
-				return super.onContextItemSelected(item);
+		boolean Handled = false;
+
+		switch (item.getItemId()) {
+		case R.id.stop:
+			KeyClick();
+			btnStop_Action();
+			Handled = true;
+			break;
+		case R.id.fatal_stop:
+			FatalStopBeep();
+			btnFatalStop_Action();
+			Handled = true;
+			break;
+		default:
+			Handled = super.onContextItemSelected(item);
+			break;
+		}
+		KeyInProcess = false;
+		return Handled;
+	}
+
+	// --------------------------------------------------------- Options Menu
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		super.onCreateOptionsMenu(menu);
+		MenuInflater inflater = getMenuInflater();
+		inflater.inflate(R.menu.main_menu, menu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.mm_settings:
+			startActivity(new Intent(this, Prefs.class));
+			return true;
+		case R.id.mm_about:
+			Intent i = new Intent(this, About.class);
+			startActivity(i);
+			break;
+		case R.id.mm_set_driver:
+			startActivityForResult(new Intent(this, SetDriver.class),
+					SET_DRIVER);
+			break;
+		case R.id.mm_set_section:
+			startActivityForResult(new Intent(this, SetSection.class),
+					SET_SECTION);
+			break;
+		case R.id.mm_exit:
+			break;
+
+		// More items go here (if any) ...
+		}
+		return false;
+	}
+
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		Log.d(TAG, "onActivityResult...");
+		// See which child activity is calling us back.
+		switch (requestCode) {
+		case SET_SECTION:
+			if (resultCode == RESULT_CANCELED)
+				Log.d(TAG, "SetSection: RESULT_CANCELED");
+			else if (resultCode == RESULT_OK)
+				Log.d(TAG, "SetSection: RESULT_OK");
+			else
+				Log.d(TAG, "SetSection: UNKNOWN_RESULT");
+			UpdateDisplay();
+			break;
+		case SET_DRIVER:
+			if (resultCode == RESULT_CANCELED)
+				Log.d(TAG, "SetDriver: RESULT_CANCELED");
+			else if (resultCode == RESULT_OK)
+				Log.d(TAG, "SetDriver: RESULT_OK");
+			else
+				Log.d(TAG, "SetDriver: UNKNOWN_RESULT");
+			UpdateDisplay();
+			break;
+		default:
+			break;
 		}
 	}
-// --------------------------------------------------------- Options Menu
-	@Override
-	   public boolean onCreateOptionsMenu(Menu menu) {
-	      super.onCreateOptionsMenu(menu);
-	      MenuInflater inflater = getMenuInflater();
-	      inflater.inflate(R.menu.main_menu, menu);
-	      return true;
-	   }
 
-	   static final int SET_SECTION = 4711;
-	   static final int SET_DRIVER = 4712;
-
-	   @Override
-	   public boolean onOptionsItemSelected(MenuItem item) {
-	      switch (item.getItemId()) {
-	      case R.id.mm_settings:
-	         startActivity(new Intent(this, Prefs.class));
-	         return true;
-	      case R.id.mm_about:
-	          Intent i = new Intent(this, About.class);
-	          startActivity(i);
-	          break;
-	      case R.id.mm_set_driver:
-	          startActivityForResult(new Intent(this, SetDriver.class), SET_DRIVER);
-	          break;
-	      case R.id.mm_set_section:
-	          startActivityForResult(new Intent(this, SetSection.class), SET_SECTION);
-	          break;
-	      case R.id.mm_exit:
-	          break;
-
-	      // More items go here (if any) ...
-	      }
-	      return false;
-	   }
-
-	   protected void onActivityResult(int requestCode, int resultCode, Intent data)
-	   {
-		   Log.d(TAG, "onActivityResult...");
-		    // See which child activity is calling us back.
-		    switch (requestCode) 
-		    {
-	        case SET_SECTION:
-	            if (resultCode == RESULT_CANCELED) Log.d(TAG, "SetSection: RESULT_CANCELED" );
-	            else if (resultCode == RESULT_OK)Log.d(TAG, "SetSection: RESULT_OK" );
-	            else Log.d(TAG, "SetSection: UNKNOWN_RESULT" );
-			    UpdateDisplay();
-	            break;
-	        case SET_DRIVER:
-	            if (resultCode == RESULT_CANCELED) Log.d(TAG, "SetDriver: RESULT_CANCELED" );
-	            else if (resultCode == RESULT_OK)Log.d(TAG, "SetDriver: RESULT_OK" );
-	            else Log.d(TAG, "SetDriver: UNKNOWN_RESULT" );
-			    UpdateDisplay();
-	            break;
-		        default:
-		            break;
-		    }
-		}
-
-	   
 	// ----------------------------------------- program logic...
-	private void btnStart_Click() {
-		
+	private void btnStart_Click() {			
 		if (Mode == Modes.Saved) {
 			History.clear();
 			RatingAction.ActualPoints = 0;
 			// If the driver-number is not set up to this moment,
 			// the driver-number is negated and incremented automatically
-			if(Math.abs(RatingAction.ActualDriver) == Math.abs(NextDriver)) // input forgotten?
+			if (Math.abs(RatingAction.ActualDriver) == Math.abs(NextDriver)) // input
+																				// forgotten?
 			{
 				RatingAction.ActualDriver = -Math.abs(++NextDriver);
-			}
-			else	
-			{
+			} else {
 				RatingAction.ActualDriver = NextDriver;
 			}
 			Log2File(new RatingAction(RatingAction.Types.start));
 			EnterMode(Modes.Rating);
-		} 
-//		else {
-//			ErrorBeep();
-//		}
-
+		}
 	}
 
 	private void btnAdd2_Click() {
@@ -384,11 +442,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			History.push(ra);
 			Log2File(ra);
 			UpdateDisplay();
-		} 
-//		else {
-//			ErrorBeep();
-//		}
-
+		}
 	}
 
 	private void btnAdd5_Click() {
@@ -399,11 +453,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			History.push(ra);
 			Log2File(ra);
 			UpdateDisplay();
-		} 
-//		else {
-//			ErrorBeep();
-//		}
-
+		}
 	}
 
 	private void btnAdd10_Click() {
@@ -414,11 +464,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			History.push(ra);
 			Log2File(ra);
 			UpdateDisplay();
-		} 
-//		else {
-//			ErrorBeep();
-//		}
-
+		}
 	}
 
 	private void btnBack_Click() {
@@ -440,19 +486,13 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 				}
 				UpdateDisplay();
 			}
-		} 
-//		else {
-//			ErrorBeep();
-//		}
+		}
 	}
 
 	private void btnSave_Click() {
 		if (Mode == Modes.Unsaved) {
 			EnterMode(Modes.Saved);
-		} 
-//		else if (Mode == Modes.Rating) {
-//			ErrorBeep();
-//		}
+		}
 	}
 
 	private void btnGoal_Click() {
@@ -464,32 +504,22 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			Log2File(ra);
 			UpdateDisplay();
 			EnterMode(Modes.Unsaved);
-		} 
-//		else {
-//			ErrorBeep();
-//		}
+		}
 	}
 
 	private void btnStop_Action() {
 		if (Mode == Modes.Rating) {
 			Log2File(new RatingAction(RatingAction.Types.stop));
 			EnterMode(Modes.Unsaved);
-		} 
-//		else {
-//			ErrorBeep();
-//		}
+		}
 	}
 
 	private void btnFatalStop_Action() {
 		if (Mode == Modes.Rating) {
 			RatingAction.ActualPoints = 0;
 			Log2File(new RatingAction(RatingAction.Types.fatalstop));
-			FatalStopBeep();
 			EnterMode(Modes.Unsaved);
-		} 
-//		else {
-//			ErrorBeep();
-//		}
+		}
 	}
 
 	void UpdateDisplay() {
@@ -499,7 +529,8 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		sec = sec % 60;
 
 		tvRider.setText(String.format("Rid: %03d", RatingAction.ActualDriver));
-		tvSection.setText(String.format("Sect: %02d", RatingAction.ActualSection));
+		tvSection.setText(String.format("Sect: %02d",
+				RatingAction.ActualSection));
 		tvPoints.setText(String.format("Pt: %04d", RatingAction.ActualPoints));
 
 		switch (Mode) {
@@ -518,13 +549,11 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		}
 	}
 
-	void EnterMode(Modes m)
-	{
-		switch(m)
-		{
+	void EnterMode(Modes m) {
+		switch (m) {
 		case Saved:
 			Mode = Modes.Saved;
-			
+
 			btnTwoEnabled = false;
 			btnFiveEnabled = false;
 			btnTenEnabled = false;
@@ -534,7 +563,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			btnGoalEnabled = false;
 			btnSaveEnabled = true;
 			break;
-			
+
 		case Unsaved:
 			Mode = Modes.Unsaved;
 			CountDownEnabled = false;
@@ -549,13 +578,13 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			btnGoalEnabled = true;
 			btnSaveEnabled = true;
 			break;
-			
+
 		case Rating:
 			Mode = Modes.Rating;
 			CountDownMsecs = CountDownDuration;
 			CountDownEnabled = true;
 			registerForContextMenu(findViewById(R.id.stop_button));
-			
+
 			btnTwoEnabled = true;
 			btnFiveEnabled = true;
 			btnTenEnabled = true;
@@ -564,7 +593,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			btnStopEnabled = true;
 			btnGoalEnabled = true;
 			btnSaveEnabled = false;
-			break;			
+			break;
 		}
 		UpdateDisplay();
 
@@ -574,31 +603,33 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		// create filename on the fly
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd");
 		String FileName = "log_" + sdf.format(new Date()) + ".csv";
-//		Log.d(TAG, "FileName: " + FileName);
-		return FileName;  
+		// Log.d(TAG, "FileName: " + FileName);
+		return FileName;
 	}
 
 	void Log2File(RatingAction ra) {
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
-		String Line = String.format("%d;%s;%s;%d;%d\n", 
-				ra.ID, ra.Type.toString(), sdf.format(ra.TimeStamp), ra.Driver, ra.Points);
-		Log.d(TAG, "LINE: " +Line);
-		
-		 try {
-			 File sdCard = Environment.getExternalStorageDirectory();
-			 File dir = new File (sdCard.getAbsolutePath() + "/FreeZoneAssist");			 
-			 dir.mkdirs();
-			 File LogFile = new File(dir, GetLogFileName());
+		String Line = String.format("%d;%s;%s;%d;%d\n", ra.ID,
+				ra.Type.toString(), sdf.format(ra.TimeStamp), ra.Driver,
+				ra.Points);
+		Log.d(TAG, "LINE: " + Line);
 
-			 FileWriter LogWriter = new FileWriter(LogFile, true);	// append...
-//			 BufferedWriter out = new BufferedWriter(LogWriter);	// not used, because of robustness...
+		try {
+			File sdCard = Environment.getExternalStorageDirectory();
+			File dir = new File(sdCard.getAbsolutePath() + "/FreeZoneAssist");
+			dir.mkdirs();
+			File LogFile = new File(dir, GetLogFileName());
 
-			 LogWriter.append(Line);
-			 LogWriter.close();
+			FileWriter LogWriter = new FileWriter(LogFile, true); // append...
+			// BufferedWriter out = new BufferedWriter(LogWriter); // not used,
+			// because of robustness...
 
-		 } catch (IOException e) {
-			 Log.e(TAG, "Could not write file " + e.getMessage());
-		 }
+			LogWriter.append(Line);
+			LogWriter.close();
+
+		} catch (IOException e) {
+			Log.e(TAG, "Could not write file " + e.getMessage());
+		}
 	}
 
 	RatingAction InitFromLog() {
@@ -629,17 +660,27 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		return ra;
 	}
 
-	void KeyClick() {		
+	void KeyClick() {
 		try {
 			mpKeyClick.start();
+			HapticFeedback();
 		} catch (Exception e) {
 			Log.e(TAG, "beep error: " + e.getMessage(), e);
 		}
+	}
+
+	void HapticFeedback() {
+		HapticFeedback(50);		
+	}
+	
+	void HapticFeedback(int duration) {
+		vibrator.vibrate(duration);		
 	}
 	
 	void ErrorBeep() {
 		try {
 			mpErrorBeep.start();
+			HapticFeedback();
 		} catch (Exception e) {
 			Log.e(TAG, "beep error: " + e.getMessage(), e);
 		}
@@ -653,22 +694,24 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		}
 	}
 
-	void CountDownBeep() {	
-		try 
-		{
-//			mpCountDownOverBeep.setLooping(false);
-			mpCountDownOverBeep.start();
-			mpCountDownOverBeep.setOnCompletionListener(new OnCompletionListener() {
-				int BeepCount=0;				
-				public void onCompletion(MediaPlayer arg0) {
-					if(++BeepCount < 3)
-					{
-						try { Thread.sleep(200); 
-						} catch (InterruptedException e){}
-						arg0.start();						
-					}
-				}
-			});
+	void CountDownBeep() {
+		try {
+			// mpCountDownOverBeep.setLooping(false);
+			mpTimeout.start();
+			mpTimeout
+					.setOnCompletionListener(new OnCompletionListener() {
+						int BeepCount = 0;
+
+						public void onCompletion(MediaPlayer arg0) {
+							if (++BeepCount < 3) {
+								try {
+									Thread.sleep(200);
+								} catch (InterruptedException e) {
+								}
+								arg0.start();
+							}
+						}
+					});
 		} catch (Exception e) {
 			Log.e(TAG, "beep error: " + e.getMessage(), e);
 		}
@@ -695,7 +738,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 		}
 	};
 
-
 	// generic FreeRunningCounter Tick-Handler!
 	protected void frt_tick() {
 		if (CountDownEnabled) {
@@ -713,6 +755,5 @@ public class FreeZoneAssist extends Activity implements OnClickListener, OnTouch
 			}
 		}
 	}
-
 
 }

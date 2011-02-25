@@ -104,27 +104,10 @@ public final class R {
         public static final int stop_submenu=0x7f080001;
     }
     public static final class raw {
-        public static final int beep1=0x7f050000;
-        public static final int beep10=0x7f050001;
-        public static final int beep2=0x7f050002;
-        public static final int beep3=0x7f050003;
-        public static final int beep4=0x7f050004;
-        public static final int beep5=0x7f050005;
-        public static final int beep6=0x7f050006;
-        public static final int beep7=0x7f050007;
-        public static final int beep8=0x7f050008;
-        public static final int beep9=0x7f050009;
-        public static final int button15=0x7f05000a;
-        public static final int button16=0x7f05000b;
-        public static final int button17=0x7f05000c;
-        public static final int button18=0x7f05000d;
-        public static final int button21=0x7f05000e;
-        public static final int button23=0x7f05000f;
-        public static final int button24=0x7f050010;
-        public static final int button25=0x7f050011;
-        public static final int button26=0x7f050012;
-        public static final int button28=0x7f050013;
-        public static final int button29=0x7f050014;
+        public static final int click01=0x7f050000;
+        public static final int error_beep=0x7f050001;
+        public static final int fatalstop_beep=0x7f050002;
+        public static final int timeout_beep=0x7f050003;
     }
     public static final class string {
         public static final int abort=0x7f070019;
