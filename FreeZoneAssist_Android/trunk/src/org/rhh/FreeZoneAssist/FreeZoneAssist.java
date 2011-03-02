@@ -12,9 +12,8 @@ import android.content.Intent;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.SystemClock;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -39,14 +38,17 @@ import android.widget.TextView;
 public class FreeZoneAssist extends Activity implements OnClickListener,
 		OnTouchListener {
 	static final String TAG = "FZA";
-	static final int ver = 17;
-	static final int SET_SECTION = 4711;
+	static final int MajorVer = 0;
+	static final int MinorVer = 18;
+	static final String CreationDate = "02mar11";
+	static final int SET_SECTION = 4711;	
 	static final int SET_DRIVER = 4712;
 
 	// --------------------------------------------------- Fields...
 	TextView tvRider, tvPoints, tvSection, tvCountdown;
 	boolean btnTwoEnabled, btnFiveEnabled, btnTenEnabled, btnBackEnabled,
-			btnStartEnabled, btnStopEnabled, btnGoalEnabled, btnSaveEnabled;
+			btnStartEnabled, btnStopEnabled, btnGoalEnabled, btnSaveEnabled, 
+			setSectionEnabled, setDriverEnabled;
 
 	enum Modes {
 		Rating, Saved, Unsaved
@@ -58,22 +60,17 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 
 	Stack<RatingAction> History = new Stack<RatingAction>(); // size?
 
-	private MediaPlayer mpErrorBeep;
-	private MediaPlayer mpFatalStopBeep;
-	private MediaPlayer mpTimeout;
-	private MediaPlayer mpKeyClick;
-	Vibrator vibrator;
+	private static MediaPlayer mpErrorBeep;
+	private static MediaPlayer mpFatalStopBeep;
+	private static MediaPlayer mpTimeout;
+	private static MediaPlayer mpKeyClick;
+	private static Vibrator vibrator;
 
-	// free running counter to emulate watchdog-timer on Arduino
-	long frtStartTime = 0L;
-	int frtInterval = 100; // in msecs
-	private Handler frtHandler = new Handler(); // used as a free running timer
-												// (frt)
-	// --------------------------- Countdown driven by free running timer
+	CompetitionTimer timer;
+	
 	int CountDownDuration = 60 * 1000; // 60 sec
 	int CountDownTickInterval = 1000; // 1000 msec => 1sec
 	int CountDownMsecs = CountDownDuration;
-	boolean CountDownEnabled = true;
 
 	// --------------------------------------------------- Livecycle Methods...
 	/** Called when the activity is first created. */
@@ -139,7 +136,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		mpKeyClick = MediaPlayer.create(this, R.raw.click01);	// first 0.1 sec. of button16
 		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
-		startFreeRunningTimer();
+		timer = new CompetitionTimer(CountDownDuration, CountDownTickInterval);
 
 		try // warm start...
 		{
@@ -147,8 +144,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			this.Mode = (Modes) savedInstanceState.getSerializable("State");
 			this.CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
 			this.NextDriver = savedInstanceState.getInt("NextDriver");
-			this.CountDownEnabled = savedInstanceState
-					.getBoolean("CountDownEnabled");
 			RatingAction.ActualDriver = savedInstanceState.getInt("Driver");
 			RatingAction.ActualPoints = savedInstanceState.getInt("Points");
 			RatingAction.ActualSection = savedInstanceState.getInt("Section");
@@ -159,7 +154,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			Log.d(TAG, "onCreate: cold start!");
 			Mode = Modes.Saved;
 			CountDownMsecs = 0;
-			CountDownEnabled = false;
 			RatingAction ra = InitFromLog();
 			RatingAction.ActualDriver = NextDriver = (ra.Driver + 1);
 			RatingAction.ActualPoints = 0;
@@ -169,7 +163,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 
 		EnterMode(Mode);
 
-		this.setTitle(String.format("FreeZoneAssist (v%03d/17feb11)", ver));
+		this.setTitle(String.format("FreeZoneAssist (v%1d.%03d/%s)",MajorVer, MinorVer, CreationDate));
 		
 	}
 
@@ -199,7 +193,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		savedInstanceState.putSerializable("State", this.Mode);
 		savedInstanceState.putInt("CountDownMsecs", this.CountDownMsecs);
 		savedInstanceState.putInt("NextDriver", this.NextDriver);
-		savedInstanceState.putBoolean("CountDownEnabled", CountDownEnabled);
 		savedInstanceState.putInt("Driver", RatingAction.ActualDriver);
 		savedInstanceState.putInt("Points", RatingAction.ActualPoints);
 		savedInstanceState.putInt("Section", RatingAction.ActualSection);
@@ -273,7 +266,10 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			case R.id.tvPoints:
 			case R.id.tvRider:
 			case R.id.tvSection:
-				KeyClick();
+				if(setDriverEnabled)
+					KeyClick();
+				else
+					ErrorBeep();
 				break;
 			}
 		}
@@ -315,8 +311,8 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		case R.id.tvPoints:
 		case R.id.tvRider:
 		case R.id.tvSection:
-			startActivityForResult(new Intent(this, SetDriver.class),
-					SET_DRIVER);
+			if(setDriverEnabled)
+				startActivityForResult(new Intent(this, SetDriver.class), SET_DRIVER);
 			break;
 		}
 	}
@@ -357,13 +353,14 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		super.onCreateOptionsMenu(menu);
-		MenuInflater inflater = getMenuInflater();
-		inflater.inflate(R.menu.main_menu, menu);
+			MenuInflater inflater = getMenuInflater();
+			inflater.inflate(R.menu.main_menu, menu);
 		return true;
 	}
 
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
+		HapticFeedback();
 		switch (item.getItemId()) {
 		case R.id.mm_settings:
 			startActivity(new Intent(this, Prefs.class));
@@ -372,13 +369,21 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			Intent i = new Intent(this, About.class);
 			startActivity(i);
 			break;
-		case R.id.mm_set_driver:
-			startActivityForResult(new Intent(this, SetDriver.class),
-					SET_DRIVER);
+		case R.id.mm_set_driver:			
+			if(setDriverEnabled){
+				KeyClick();				
+				startActivityForResult(new Intent(this, SetDriver.class), SET_DRIVER);
+			}
+			else
+				ErrorBeep();
 			break;
 		case R.id.mm_set_section:
-			startActivityForResult(new Intent(this, SetSection.class),
-					SET_SECTION);
+			if(setSectionEnabled) {
+				KeyClick();
+				startActivityForResult(new Intent(this, SetSection.class), SET_SECTION);
+			}
+			else
+				ErrorBeep();
 			break;
 		case R.id.mm_exit:
 			break;
@@ -422,9 +427,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			RatingAction.ActualPoints = 0;
 			// If the driver-number is not set up to this moment,
 			// the driver-number is negated and incremented automatically
-			if (Math.abs(RatingAction.ActualDriver) == Math.abs(NextDriver)) // input
-																				// forgotten?
-			{
+			if (Math.abs(RatingAction.ActualDriver) == Math.abs(NextDriver)) {
 				RatingAction.ActualDriver = -Math.abs(++NextDriver);
 			} else {
 				RatingAction.ActualDriver = NextDriver;
@@ -562,11 +565,13 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			btnStopEnabled = false;
 			btnGoalEnabled = false;
 			btnSaveEnabled = true;
+			setDriverEnabled = true;
+			setSectionEnabled = true;
 			break;
 
 		case Unsaved:
 			Mode = Modes.Unsaved;
-			CountDownEnabled = false;
+			timer.cancel();
 			unregisterForContextMenu(findViewById(R.id.stop_button));
 
 			btnTwoEnabled = true;
@@ -577,12 +582,13 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			btnStopEnabled = true;
 			btnGoalEnabled = true;
 			btnSaveEnabled = true;
+			setDriverEnabled = false;
+			setSectionEnabled = false;
 			break;
 
 		case Rating:
 			Mode = Modes.Rating;
-			CountDownMsecs = CountDownDuration;
-			CountDownEnabled = true;
+			timer.start();			
 			registerForContextMenu(findViewById(R.id.stop_button));
 
 			btnTwoEnabled = true;
@@ -593,6 +599,8 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			btnStopEnabled = true;
 			btnGoalEnabled = true;
 			btnSaveEnabled = false;
+			setDriverEnabled = false;
+			setSectionEnabled = false;
 			break;
 		}
 		UpdateDisplay();
@@ -660,7 +668,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		return ra;
 	}
 
-	void KeyClick() {
+	static public void KeyClick() {
 		try {
 			mpKeyClick.start();
 			HapticFeedback();
@@ -669,15 +677,15 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		}
 	}
 
-	void HapticFeedback() {
+	static public void HapticFeedback() {
 		HapticFeedback(50);		
 	}
 	
-	void HapticFeedback(int duration) {
+	static public void HapticFeedback(int duration) {
 		vibrator.vibrate(duration);		
 	}
 	
-	void ErrorBeep() {
+	static void ErrorBeep() {
 		try {
 			mpErrorBeep.start();
 			HapticFeedback();
@@ -686,7 +694,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		}
 	}
 
-	void FatalStopBeep() {
+	static void FatalStopBeep() {
 		try {
 			mpFatalStopBeep.start();
 		} catch (Exception e) {
@@ -694,7 +702,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		}
 	}
 
-	void CountDownBeep() {
+	static void CountDownBeep() {
 		try {
 			// mpCountDownOverBeep.setLooping(false);
 			mpTimeout.start();
@@ -717,43 +725,28 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		}
 	}
 
-	// --------------------------------------------------- timer stuff
-	void startFreeRunningTimer() {
-		if (frtStartTime == 0L) {
-			frtStartTime = System.currentTimeMillis();
-			frtHandler.removeCallbacks(frtUpdateTimeTask);
-			frtHandler.postDelayed(frtUpdateTimeTask, 100);
+	// --------------------------------------------------- countdown timer stuff
+	
+	//countdowntimer is an abstract class, so extend it and fill in methods
+	public class CompetitionTimer extends CountDownTimer{
+
+		public CompetitionTimer(long millisInFuture, long countDownInterval) {
+			super(millisInFuture, countDownInterval);
 		}
-	}
-
-	void stopFreeRunningTimer() {
-		frtHandler.removeCallbacks(frtUpdateTimeTask);
-	}
-
-	private Runnable frtUpdateTimeTask = new Runnable() {
-		public void run() {
-			frt_tick();
-			frtHandler.postAtTime(this, SystemClock.uptimeMillis()
-					+ frtInterval);
+	
+		@Override
+		public void onFinish() {
+			Log2File(new RatingAction(RatingAction.Types.timeout));
+			CountDownBeep();
+			EnterMode(Modes.Unsaved);
 		}
-	};
-
-	// generic FreeRunningCounter Tick-Handler!
-	protected void frt_tick() {
-		if (CountDownEnabled) {
-			// ------------------------------------------ countdown tick action
-			if (CountDownMsecs % CountDownTickInterval < frtInterval) {
-				UpdateDisplay();
-			}
-			CountDownMsecs -= frtInterval;
-			// ------------------------------------------ end of countdown
-			if (CountDownMsecs <= 0) {
-				CountDownEnabled = false;
-				Log2File(new RatingAction(RatingAction.Types.timeout));
-				CountDownBeep();
-				EnterMode(Modes.Unsaved);
-			}
+	
+		@Override
+		public void onTick(long millisUntilFinished) {
+			CountDownMsecs = (int) millisUntilFinished;
+			UpdateDisplay();
 		}
-	}
 
+	}
+	
 }

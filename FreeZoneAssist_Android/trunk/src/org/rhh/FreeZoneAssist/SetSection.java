@@ -11,12 +11,15 @@ public class SetSection extends Activity implements  OnClickListener, OnChangedL
 {
 	NumberPicker sd001, sd010;
 	
+	boolean KeyInProcess = false;
+	
 	int SectionNumber=123, SectionDigit001, SectionDigit010;
 	
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
+    	View v;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.set_section);
         
@@ -36,8 +39,11 @@ public class SetSection extends Activity implements  OnClickListener, OnChangedL
         sd010.updateView();
         
         // register buttons
-        findViewById(R.id.section_ok).setOnClickListener(this);
-        findViewById(R.id.section_abort).setOnClickListener(this);
+        v = findViewById(R.id.section_ok);
+        v.setOnClickListener(this);
+
+        v = findViewById(R.id.section_abort);
+        v.setOnClickListener(this);
     }
     
 	@Override
@@ -53,6 +59,8 @@ public class SetSection extends Activity implements  OnClickListener, OnChangedL
 				break;
 		}
 		SectionNumber = SectionDigit010 * 10 + SectionDigit001;
+		FreeZoneAssist.KeyClick();
+		FreeZoneAssist.HapticFeedback();
 	}
 
 	@Override
@@ -73,5 +81,8 @@ public class SetSection extends Activity implements  OnClickListener, OnChangedL
 				this.finish();
 				break;
 		}		
+		FreeZoneAssist.KeyClick();
+		FreeZoneAssist.HapticFeedback();
 	}
+
 }

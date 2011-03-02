@@ -12,11 +12,13 @@ public class SetDriver extends Activity implements  OnClickListener, OnChangedLi
 	NumberPicker dd001, dd010, dd100;	// DriverDigits
 	
 	int DriverNumber=123, DriverDigit001, DriverDigit010, DriverDigit100;
+	boolean KeyInProcess = false;
 	
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
+    	View v;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.set_driver);
         
@@ -42,8 +44,10 @@ public class SetDriver extends Activity implements  OnClickListener, OnChangedLi
         dd100.updateView();
         
         // register buttons
-        findViewById(R.id.driver_ok).setOnClickListener(this);
-        findViewById(R.id.driver_abort).setOnClickListener(this);
+        v = findViewById(R.id.driver_ok);
+        v.setOnClickListener(this);
+        v = findViewById(R.id.driver_abort);
+        v.setOnClickListener(this);
     }
     
 	@Override
@@ -62,6 +66,8 @@ public class SetDriver extends Activity implements  OnClickListener, OnChangedLi
 				break;
 		}
 		DriverNumber = DriverDigit100 * 100 + DriverDigit010 * 10 + DriverDigit001;
+		FreeZoneAssist.KeyClick();
+		FreeZoneAssist.HapticFeedback();
 	}
 
 	@Override
@@ -83,5 +89,8 @@ public class SetDriver extends Activity implements  OnClickListener, OnChangedLi
 				this.finish();
 				break;
 		}		
+		FreeZoneAssist.KeyClick();
+		FreeZoneAssist.HapticFeedback();
 	}
+
 }
