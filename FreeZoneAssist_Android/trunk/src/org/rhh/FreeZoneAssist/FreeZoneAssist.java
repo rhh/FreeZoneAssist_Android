@@ -32,15 +32,27 @@ import android.widget.TextView;
 //	o configuration menu
 //		- sounds (error, fatal, timeout)
 //		- section time
-//	o button feedback
-//      - haptic
+//	o make countdown timer persistant!!! (-> service ???)
+//      - landscape layout temporarilly disabled
+//  o sounds on Archos devices:
+//      - KeyClick -> only from system (and only with newest Android 2.2.1 version)
+//		- ErrorBeep -> ok! (with Android 2.2.1)
+// 		- FatalStopBeep -> ok! (with Android 2.2.1)
+//		- CountDownBeep -> ok! (with Android 2.2.1)
+//		- HapticFeedback -> no hardware...
+//	o "back" button shouldn't end application without notification (dialog?)
+//  o text-sizes:
+//		- HTC Desire: 	32dp
+//		- Archos 4.3:	32dp
+//		- Archos 7.0:	48dp
+//		- Archos 10.1:	60dp
 
 public class FreeZoneAssist extends Activity implements OnClickListener,
 		OnTouchListener {
 	static final String TAG = "FZA";
 	static final int MajorVer = 0;
-	static final int MinorVer = 18;
-	static final String CreationDate = "02mar11";
+	static final int MinorVer = 19;
+	static final String CreationDate = "27apr11";
 	static final int SET_SECTION = 4711;	
 	static final int SET_DRIVER = 4712;
 
@@ -70,7 +82,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	
 	int CountDownDuration = 60 * 1000; // 60 sec
 	int CountDownTickInterval = 1000; // 1000 msec => 1sec
-	int CountDownMsecs = CountDownDuration;
+	int CountDownMsecs = CountDownDuration;	// updated by "timer.onTick()"
 
 	// --------------------------------------------------- Livecycle Methods...
 	/** Called when the activity is first created. */
@@ -137,28 +149,30 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
 		timer = new CompetitionTimer(CountDownDuration, CountDownTickInterval);
-
+		
 		try // warm start...
 		{
-			Log.d(TAG, "onCreate: warm start!");
 			this.Mode = (Modes) savedInstanceState.getSerializable("State");
+//			this.timer = (CompetitionTimer) savedInstanceState.getSerializable("competitionTimer");
 			this.CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
 			this.NextDriver = savedInstanceState.getInt("NextDriver");
 			RatingAction.ActualDriver = savedInstanceState.getInt("Driver");
 			RatingAction.ActualPoints = savedInstanceState.getInt("Points");
 			RatingAction.ActualSection = savedInstanceState.getInt("Section");
 			RatingAction.IDCounter = savedInstanceState.getInt("ID");
+			Log.d(TAG, "onCreate: warm start!");
 
 		} catch (NullPointerException e) // cold start...
 		{
-			Log.d(TAG, "onCreate: cold start!");
 			Mode = Modes.Saved;
-			CountDownMsecs = 0;
+//			timer = new CompetitionTimer(CountDownDuration, CountDownTickInterval);
+			CountDownMsecs = CountDownDuration;
 			RatingAction ra = InitFromLog();
 			RatingAction.ActualDriver = NextDriver = (ra.Driver + 1);
 			RatingAction.ActualPoints = 0;
 			RatingAction.ActualSection = ra.Section;
 			RatingAction.IDCounter = ra.ID;
+			Log.d(TAG, "onCreate: cold start!");
 		}
 
 		EnterMode(Mode);
@@ -706,8 +720,8 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		try {
 			// mpCountDownOverBeep.setLooping(false);
 			mpTimeout.start();
-			mpTimeout
-					.setOnCompletionListener(new OnCompletionListener() {
+			
+			mpTimeout.setOnCompletionListener(new OnCompletionListener() {
 						int BeepCount = 0;
 
 						public void onCompletion(MediaPlayer arg0) {
@@ -728,7 +742,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	// --------------------------------------------------- countdown timer stuff
 	
 	//countdowntimer is an abstract class, so extend it and fill in methods
-	public class CompetitionTimer extends CountDownTimer{
+	public class CompetitionTimer extends CountDownTimer {
 
 		public CompetitionTimer(long millisInFuture, long countDownInterval) {
 			super(millisInFuture, countDownInterval);
@@ -746,7 +760,6 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			CountDownMsecs = (int) millisUntilFinished;
 			UpdateDisplay();
 		}
-
 	}
 	
 }
