@@ -7,5 +7,7 @@
 				android:title="@string/stop_menu" />
 		<item 	android:id="@+id/fatal_stop" 
 				android:title="@string/fatal_stop_menu" />
+		<item 	android:id="@+id/abort_stop" 
+				android:title="@string/abort_stop_menu" />
 	</item>
 </menu>

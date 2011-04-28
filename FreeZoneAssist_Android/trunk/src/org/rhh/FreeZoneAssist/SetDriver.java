@@ -22,7 +22,7 @@ public class SetDriver extends Activity implements  OnClickListener, OnChangedLi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.set_driver);
         
-        DriverNumber = RatingAction.ActualDriver;	
+        DriverNumber = Math.abs(RatingAction.ActualDriver);	
         DriverDigit100 = DriverNumber % 1000 / 100;
         DriverDigit010 = DriverNumber % 100 / 10;
         DriverDigit001 = DriverNumber % 10;

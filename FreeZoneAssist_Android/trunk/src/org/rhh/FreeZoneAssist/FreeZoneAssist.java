@@ -51,10 +51,10 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		OnTouchListener {
 	static final String TAG = "FZA";
 	static final int MajorVer = 0;
-	static final int MinorVer = 19;
-	static final String CreationDate = "27apr11";
-	static final int SET_SECTION = 4711;	
-	static final int SET_DRIVER = 4712;
+	static final int MinorVer = 20;
+	static final String CreationDate = "28apr11";
+	static final int SET_SECTION = 4711;	// RequestCode for sub-activity
+	static final int SET_DRIVER = 4712;		// RequestCode for sub-activity
 
 	// --------------------------------------------------- Fields...
 	TextView tvRider, tvPoints, tvSection, tvCountdown;
@@ -67,8 +67,11 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	};
 	Modes Mode;
 	
+	static boolean TimeoutOccured = false;
 	boolean KeyInProcess = false;
-	int NextDriver;
+	boolean StopKeyInProgress = false;
+	boolean DriverChanged = false;
+	int NextDefaultDriver=0;
 
 	Stack<RatingAction> History = new Stack<RatingAction>(); // size?
 
@@ -153,9 +156,8 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		try // warm start...
 		{
 			this.Mode = (Modes) savedInstanceState.getSerializable("State");
-//			this.timer = (CompetitionTimer) savedInstanceState.getSerializable("competitionTimer");
 			this.CountDownMsecs = savedInstanceState.getInt("CountDownMsecs");
-			this.NextDriver = savedInstanceState.getInt("NextDriver");
+			this.NextDefaultDriver = savedInstanceState.getInt("NextDefaultDriver");
 			RatingAction.ActualDriver = savedInstanceState.getInt("Driver");
 			RatingAction.ActualPoints = savedInstanceState.getInt("Points");
 			RatingAction.ActualSection = savedInstanceState.getInt("Section");
@@ -165,10 +167,9 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		} catch (NullPointerException e) // cold start...
 		{
 			Mode = Modes.Saved;
-//			timer = new CompetitionTimer(CountDownDuration, CountDownTickInterval);
 			CountDownMsecs = CountDownDuration;
 			RatingAction ra = InitFromLog();
-			RatingAction.ActualDriver = NextDriver = (ra.Driver + 1);
+			RatingAction.ActualDriver = 0;
 			RatingAction.ActualPoints = 0;
 			RatingAction.ActualSection = ra.Section;
 			RatingAction.IDCounter = ra.ID;
@@ -206,7 +207,7 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	public void onSaveInstanceState(Bundle savedInstanceState) {
 		savedInstanceState.putSerializable("State", this.Mode);
 		savedInstanceState.putInt("CountDownMsecs", this.CountDownMsecs);
-		savedInstanceState.putInt("NextDriver", this.NextDriver);
+		savedInstanceState.putInt("NextDefaultDriver", this.NextDefaultDriver);
 		savedInstanceState.putInt("Driver", RatingAction.ActualDriver);
 		savedInstanceState.putInt("Points", RatingAction.ActualPoints);
 		savedInstanceState.putInt("Section", RatingAction.ActualSection);
@@ -258,8 +259,10 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 					ErrorBeep();
 				break;
 			case R.id.stop_button:
-				if (btnStopEnabled)
+				if (btnStopEnabled) {
 					KeyClick();
+					StopKeyInProgress = true;
+				}
 				else
 					ErrorBeep();
 				break;
@@ -312,9 +315,9 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		case R.id.start_button:
 			btnStart_Click();
 			break;
-		case R.id.stop_button:
-			btnStop_Action();
-			break;
+//		case R.id.stop_button:
+//			btnStop_Action();
+//			break;
 		case R.id.goal_button:
 			btnGoal_Click();
 			break;
@@ -322,11 +325,16 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			btnSave_Click();
 			break;
 		case R.id.tvCountdown:
+		case R.id.tvSection:
+			if(setSectionEnabled) {
+				startActivityForResult(new Intent(this, SetSection.class), SET_SECTION);
+			}
+			break;
 		case R.id.tvPoints:
 		case R.id.tvRider:
-		case R.id.tvSection:
-			if(setDriverEnabled)
+			if(setDriverEnabled) {
 				startActivityForResult(new Intent(this, SetDriver.class), SET_DRIVER);
+			}
 			break;
 		}
 	}
@@ -348,17 +356,25 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		case R.id.stop:
 			KeyClick();
 			btnStop_Action();
+			btnTimeout_Action();	// just in case there was a timeout in the meanwhile...
 			Handled = true;
 			break;
 		case R.id.fatal_stop:
 			FatalStopBeep();
 			btnFatalStop_Action();
+			btnTimeout_Action();	// just in case there was a timeout in the meanwhile...
 			Handled = true;
 			break;
+		case R.id.abort_stop:
+			KeyClick();
+			Handled = true;
+			break;
+			
 		default:
 			Handled = super.onContextItemSelected(item);
 			break;
 		}
+		StopKeyInProgress = false;
 		KeyInProcess = false;
 		return Handled;
 	}
@@ -414,8 +430,9 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		case SET_SECTION:
 			if (resultCode == RESULT_CANCELED)
 				Log.d(TAG, "SetSection: RESULT_CANCELED");
-			else if (resultCode == RESULT_OK)
+			else if (resultCode == RESULT_OK) {
 				Log.d(TAG, "SetSection: RESULT_OK");
+			}
 			else
 				Log.d(TAG, "SetSection: UNKNOWN_RESULT");
 			UpdateDisplay();
@@ -423,8 +440,10 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		case SET_DRIVER:
 			if (resultCode == RESULT_CANCELED)
 				Log.d(TAG, "SetDriver: RESULT_CANCELED");
-			else if (resultCode == RESULT_OK)
+			else if (resultCode == RESULT_OK) {
+				DriverChanged = true;
 				Log.d(TAG, "SetDriver: RESULT_OK");
+			}
 			else
 				Log.d(TAG, "SetDriver: UNKNOWN_RESULT");
 			UpdateDisplay();
@@ -439,12 +458,13 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 		if (Mode == Modes.Saved) {
 			History.clear();
 			RatingAction.ActualPoints = 0;
-			// If the driver-number is not set up to this moment,
-			// the driver-number is negated and incremented automatically
-			if (Math.abs(RatingAction.ActualDriver) == Math.abs(NextDriver)) {
-				RatingAction.ActualDriver = -Math.abs(++NextDriver);
-			} else {
-				RatingAction.ActualDriver = NextDriver;
+			// in case setting the driver-number is forgotten,
+			// the default-driver-number is negated and incremented automatically
+			if (!DriverChanged) {
+				RatingAction.ActualDriver = -Math.abs(++NextDefaultDriver);
+			} 
+			else {
+				DriverChanged = false;
 			}
 			Log2File(new RatingAction(RatingAction.Types.start));
 			EnterMode(Modes.Rating);
@@ -537,6 +557,16 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 			Log2File(new RatingAction(RatingAction.Types.fatalstop));
 			EnterMode(Modes.Unsaved);
 		}
+	}
+	
+	private void btnTimeout_Action()
+	{
+		if(TimeoutOccured && !StopKeyInProgress) {
+			Log2File(new RatingAction(RatingAction.Types.timeout));
+			CountDownBeep();
+			EnterMode(Modes.Unsaved);
+		}
+		TimeoutOccured = false;
 	}
 
 	void UpdateDisplay() {
@@ -750,9 +780,10 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 	
 		@Override
 		public void onFinish() {
-			Log2File(new RatingAction(RatingAction.Types.timeout));
-			CountDownBeep();
-			EnterMode(Modes.Unsaved);
+			if(Mode == Modes.Rating){
+				TimeoutOccured = true;
+				btnTimeout_Action();
+			}
 		}
 	
 		@Override

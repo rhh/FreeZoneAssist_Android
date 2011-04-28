@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hello">Hello World, FreeZoneAssist!</string>
-    <string name="app_name">FreeZoneAssist</string>
+    <string name="app_name">FreeZone</string>
     <string name="main_title">FreeZoneAssist</string>
     <string name="tvRider_default">Rid:1234</string>
     <string name="tvSection_default">Sec:1234</string>
@@ -19,6 +18,7 @@
     <string name="stop_menu_title">ENDE:</string>
     <string name="stop_menu">Fuß</string>    
     <string name="fatal_stop_menu">Scheitern</string>    
+    <string name="abort_stop_menu">Zurück zur Bewertung</string>
     <string name="about_title">Info</string>    
     <string name="about_text">FreeZoneAssist ist eine Anwendung der Zeitschrift TrialSport (rhh)</string>   
     <string name="settings_title">Einstellungen</string>   

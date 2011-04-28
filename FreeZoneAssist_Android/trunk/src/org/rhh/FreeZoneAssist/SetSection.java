@@ -23,7 +23,7 @@ public class SetSection extends Activity implements  OnClickListener, OnChangedL
         super.onCreate(savedInstanceState);
         setContentView(R.layout.set_section);
         
-        SectionNumber = RatingAction.ActualSection;	
+        SectionNumber = Math.abs(RatingAction.ActualSection);	
         SectionDigit010 = SectionNumber % 100 / 10;
         SectionDigit001 = SectionNumber % 10;
         
