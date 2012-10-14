@@ -41,18 +41,18 @@ import android.widget.TextView;
 //		- CountDownBeep -> ok! (with Android 2.2.1)
 //		- HapticFeedback -> no hardware...
 //	o "back" button shouldn't end application without notification (dialog?)
+//  o icon (logo!) in "drawable-hdpi" should be higher resolution??? (520x520???)
 //  o text-sizes:
 //		- HTC Desire: 	32dp
 //		- Archos 4.3:	32dp
 //		- Archos 7.0:	48dp
 //		- Archos 10.1:	60dp
 
-public class FreeZoneAssist extends Activity implements OnClickListener,
-		OnTouchListener {
+public class FreeZoneAssist extends Activity implements OnClickListener, OnTouchListener {
 	static final String TAG = "FZA";
 	static final int MajorVer = 0;
-	static final int MinorVer = 20;
-	static final String CreationDate = "28apr11";
+	static final int MinorVer = 21;
+	static final String CreationDate = "14oct12";
 	static final int SET_SECTION = 4711;	// RequestCode for sub-activity
 	static final int SET_DRIVER = 4712;		// RequestCode for sub-activity
 
@@ -519,6 +519,28 @@ public class FreeZoneAssist extends Activity implements OnClickListener,
 					break;
 				case add10:
 					Log2File(new RatingAction(RatingAction.Types.sub10));
+					break;
+				case back:
+					break;
+				case fatalstop:
+					break;
+				case init:
+					break;
+				case start:
+					break;
+				case stop:
+					break;
+				case sub1:
+					break;
+				case sub10:
+					break;
+				case sub2:
+					break;
+				case sub5:
+					break;
+				case timeout:
+					break;
+				default:
 					break;
 				}
 				UpdateDisplay();
